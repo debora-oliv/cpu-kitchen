@@ -1,0 +1,1 @@
+"""Adaptadores de interface (CLI e Streamlit) do CPU Kitchen."""

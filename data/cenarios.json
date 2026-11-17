@@ -1,0 +1,141 @@
+{
+  "versao": "1.0.0",
+  "fase": "Cozinha Principal — Turno Único",
+  "cenarios": [
+    {
+      "id": "etapa_1_introducao",
+      "titulo": "1. Introdução (Fluxo Básico)",
+      "descricao": "Observe a chegada dos pedidos na bancada, o relógio da cozinha e a primeira troca de panela.",
+      "algoritmo_fixo": "FCFS",
+      "quantum_padrao": 2,
+      "melhor_espera_media": 1.33,
+      "selo": "Aprendiz de Cozinha",
+      "pedidos": [
+        {
+          "id": "P1",
+          "nome": "Omelete",
+          "chegada": 0,
+          "burst": 3,
+          "cor": "#FF6B6B"
+        },
+        {
+          "id": "P2",
+          "nome": "Torrada",
+          "chegada": 2,
+          "burst": 2,
+          "cor": "#4ECDC4"
+        },
+        {
+          "id": "P3",
+          "nome": "Café",
+          "chegada": 5,
+          "burst": 2,
+          "cor": "#FFE66D"
+        }
+      ]
+    },
+    {
+      "id": "etapa_2_fcfs",
+      "titulo": "2. Turno FCFS (Ordem de Chegada)",
+      "descricao": "O chef conclui cada pedido na ordem de chegada, sem interrupção. Observe o impacto na espera da bancada.",
+      "algoritmo_fixo": "FCFS",
+      "quantum_padrao": 2,
+      "melhor_espera_media": 2.0,
+      "selo": "Mestre da Fila Única",
+      "pedidos": [
+        {
+          "id": "P1",
+          "nome": "Assado Lento",
+          "chegada": 0,
+          "burst": 3,
+          "cor": "#FF6B6B"
+        },
+        {
+          "id": "P2",
+          "nome": "Salada Rápida",
+          "chegada": 1,
+          "burst": 2,
+          "cor": "#4ECDC4"
+        },
+        {
+          "id": "P3",
+          "nome": "Suco Natural",
+          "chegada": 4,
+          "burst": 2,
+          "cor": "#45B7D1"
+        }
+      ]
+    },
+    {
+      "id": "etapa_3_round_robin",
+      "titulo": "3. Turno Round Robin (Ajuste de Quantum)",
+      "descricao": "Ajuste o quantum: valores muito baixos geram excesso de blocos cinzas (troca de panela); valores altos agem como FCFS.",
+      "algoritmo_fixo": "Round Robin",
+      "quantum_padrao": 1,
+      "melhor_espera_media": 6.0,
+      "selo": "Chef de Round Robin",
+      "pedidos": [
+        {
+          "id": "P1",
+          "nome": "Lasanha",
+          "chegada": 0,
+          "burst": 6,
+          "cor": "#FF6B6B"
+        },
+        {
+          "id": "P2",
+          "nome": "Hambúrguer",
+          "chegada": 1,
+          "burst": 3,
+          "cor": "#4ECDC4"
+        },
+        {
+          "id": "P3",
+          "nome": "Batata Frita",
+          "chegada": 2,
+          "burst": 3,
+          "cor": "#FFA07A"
+        }
+      ]
+    },
+    {
+      "id": "etapa_4_desafio",
+      "titulo": "4. Desafio Final (Comparação Justa)",
+      "descricao": "Execute o mesmo cenário em FCFS e em Round Robin para comparar abandonos, trocas de panela e eficiência.",
+      "algoritmo_fixo": null,
+      "quantum_padrao": 3,
+      "melhor_espera_media": 5.5,
+      "selo": "Arquiteto de CPU",
+      "pedidos": [
+        {
+          "id": "P1",
+          "nome": "Feijoada",
+          "chegada": 0,
+          "burst": 6,
+          "cor": "#FF6B6B"
+        },
+        {
+          "id": "P2",
+          "nome": "Tapioca",
+          "chegada": 1,
+          "burst": 3,
+          "cor": "#4ECDC4"
+        },
+        {
+          "id": "P3",
+          "nome": "Açaí",
+          "chegada": 2,
+          "burst": 3,
+          "cor": "#A78BFA"
+        },
+        {
+          "id": "P4",
+          "nome": "Peixe Frito",
+          "chegada": 12,
+          "burst": 2,
+          "cor": "#FBBF24"
+        }
+      ]
+    }
+  ]
+}

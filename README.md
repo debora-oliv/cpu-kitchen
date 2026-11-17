@@ -79,7 +79,6 @@ O código segue os princípios da **Arquitetura Hexagonal (*Ports & Adapters*)**
 **1. Instalar pacotes e dependências** 
 
 ```
-uv pip install streamlit
 uv pip install -e .
 ```
 

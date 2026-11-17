@@ -76,30 +76,19 @@ O código segue os princípios da **Arquitetura Hexagonal (*Ports & Adapters*)**
 - Python 3.13+
 - Streamlit (necessário apenas para a interface web)
 
-**1. Instalar dependências** 
-
-```
-pip install streamlit
-```
-
-ou
+**1. Instalar pacotes e dependências** 
 
 ```
 uv pip install streamlit
+uv pip install -e .
 ```
 
-**2. Instale os pacotes necessários**
+**2. Executar a Versão Web (Streamlit)**
 ```
-PYTHONPATH=src python -m cpu_kitchen.adapters.cli
-```
-
-**3. Executar a Versão Web (Streamlit)**
-```
-PYTHONPATH=src streamlit run src/cpu_kitchen/adapters/streamlit_app.py
+streamlit run src/cpu_kitchen/adapters/streamlit_app.py
 ```
 
-**4. Executar a Versão Console (Terminal)**
+**3. Executar a Versão Console (Terminal)**
 ```
-PYTHONPATH=src python -m cpu_kitchen.adapters.cli
+python -m cpu_kitchen.adapters.cli
 ```
-

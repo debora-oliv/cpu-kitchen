@@ -17,6 +17,7 @@ from cpu_kitchen.domain import (
     SlotGantt,
     avaliar_turno,
     criar_escalonador,
+    montar_pedidos_por_ordem,
 )
 
 st.set_page_config(
@@ -30,12 +31,19 @@ def _inicializar_engine(
     cenario: CenarioTurno,
     algoritmo: str,
     quantum: int,
+    ordem_escolhida: tuple[int, ...],
 ) -> CozinhaEngine:
-    """Cria uma nova instância do motor e salva no estado da sessão."""
+    """Cria uma nova instância do motor com os pedidos na ordem escolhida."""
     escalonador = criar_escalonador(algoritmo=algoritmo, quantum=quantum)
-    engine = CozinhaEngine(pedidos=cenario.pedidos, escalonador=escalonador)
+    pedidos_turno = montar_pedidos_por_ordem(cenario.pedidos, list(ordem_escolhida))
+    engine = CozinhaEngine(pedidos=pedidos_turno, escalonador=escalonador)
     st.session_state["engine"] = engine
-    st.session_state["assinatura_config"] = (cenario.id, algoritmo, quantum)
+    st.session_state["assinatura_config"] = (
+        cenario.id,
+        algoritmo,
+        quantum,
+        ordem_escolhida,
+    )
     return engine
 
 
@@ -43,16 +51,94 @@ def _retroceder_um_tick(
     cenario: CenarioTurno,
     algoritmo: str,
     quantum: int,
+    ordem_escolhida: tuple[int, ...],
     tempo_atual: int,
 ) -> CozinhaEngine:
     """Reconstrói deterministicamente o estado da cozinha em (tempo_atual - 1)."""
-    novo_engine = _inicializar_engine(cenario, algoritmo, quantum)
+    novo_engine = _inicializar_engine(cenario, algoritmo, quantum, ordem_escolhida)
     tempo_alvo = max(0, tempo_atual - 1)
     for _ in range(tempo_alvo):
         if not novo_engine.tem_trabalho_pendente():
             break
         novo_engine.tick()
     return novo_engine
+
+
+def _renderizar_selecao_pratos(
+    cenario: CenarioTurno,
+    simulacao_iniciada: bool,
+) -> tuple[int, ...]:
+    """Exibe os pratos da fase para o jogador definir a ordem de chegada."""
+    if st.session_state.get("cenario_selecao_id") != cenario.id:
+        st.session_state["cenario_selecao_id"] = cenario.id
+        st.session_state["ordem_escolhida"] = []
+
+    ordem_atual: list[int] = st.session_state["ordem_escolhida"]
+    tempos_chegada = [p.chegada for p in cenario.pedidos]
+
+    st.subheader("Seleção de Pratos (Ordem de Chegada)")
+    if simulacao_iniciada:
+        st.info("Simulação em andamento. Reinicie (⟳) para alterar a ordem dos pratos.")
+    else:
+        st.caption(
+            "Clique nos pratos na ordem em que deseja que cheguem. "
+            "Se não escolher nenhum, será usada a ordem padrão da fase."
+        )
+
+    cols = st.columns(len(cenario.pedidos))
+    for idx, prato in enumerate(cenario.pedidos):
+        ja_escolhido = idx in ordem_atual
+        with cols[idx]:
+            rotulo = f"{prato.nome} ({prato.burst}u)"
+            if ja_escolhido:
+                pos = ordem_atual.index(idx) + 1
+                rotulo = f"#{pos} ✓ {rotulo}"
+
+            if st.button(
+                rotulo,
+                key=f"prato_{cenario.id}_{idx}",
+                disabled=simulacao_iniciada or ja_escolhido,
+                use_container_width=True,
+            ):
+                ordem_atual.append(idx)
+                st.rerun()
+
+    col_previa, col_desfazer, col_limpar = st.columns(
+        [4, 1, 1],
+        vertical_alignment="center",
+    )
+    with col_previa:
+        if ordem_atual:
+            resumo = "  →  ".join(
+                f"**P{pos + 1}**: {cenario.pedidos[idx].nome} (`t={tempos_chegada[pos]}u`)"
+                for pos, idx in enumerate(ordem_atual)
+            )
+            st.markdown(f"Ordem escolhida: {resumo}")
+        else:
+            padrao = "  →  ".join(
+                f"**{p.id}**: {p.nome} (`t={p.chegada}u`)" for p in cenario.pedidos
+            )
+            st.markdown(f"Ordem padrão: {padrao}")
+
+    with col_desfazer:
+        if st.button(
+            "↩ Desfazer",
+            disabled=simulacao_iniciada or not ordem_atual,
+            use_container_width=True,
+        ):
+            ordem_atual.pop()
+            st.rerun()
+
+    with col_limpar:
+        if st.button(
+            "✖ Limpar",
+            disabled=simulacao_iniciada or not ordem_atual,
+            use_container_width=True,
+        ):
+            ordem_atual.clear()
+            st.rerun()
+
+    return tuple(ordem_atual)
 
 
 def _unificar_slots_gantt(gantt: list[SlotGantt]) -> list[dict]:
@@ -211,12 +297,26 @@ def renderizar_app() -> None:
         else:
             quantum = 0
 
-    assinatura_atual = (cenario.id, algoritmo, quantum)
+    # --- SELEÇÃO DE PRATOS E INICIALIZAÇÃO DO MOTOR ---
+    engine_existente: CozinhaEngine | None = st.session_state.get("engine")
+    assinatura_anterior = st.session_state.get("assinatura_config")
+    mesma_config_base = (
+        assinatura_anterior is not None
+        and assinatura_anterior[:3] == (cenario.id, algoritmo, quantum)
+    )
+    simulacao_iniciada = bool(
+        engine_existente and mesma_config_base and engine_existente.tempo > 0
+    )
+
+    st.divider()
+    ordem_escolhida = _renderizar_selecao_pratos(cenario, simulacao_iniciada)
+
+    assinatura_atual = (cenario.id, algoritmo, quantum, ordem_escolhida)
     if (
         "engine" not in st.session_state
         or st.session_state.get("assinatura_config") != assinatura_atual
     ):
-        _inicializar_engine(cenario, algoritmo, quantum)
+        _inicializar_engine(cenario, algoritmo, quantum, ordem_escolhida)
 
     engine: CozinhaEngine = st.session_state["engine"]
 
@@ -240,7 +340,13 @@ def renderizar_app() -> None:
             disabled=engine.tempo == 0,
             use_container_width=True,
         ):
-            _retroceder_um_tick(cenario, algoritmo, quantum, engine.tempo)
+            _retroceder_um_tick(
+                cenario,
+                algoritmo,
+                quantum,
+                ordem_escolhida,
+                engine.tempo,
+            )
             st.rerun()
 
     with col_avancar:
@@ -258,7 +364,7 @@ def renderizar_app() -> None:
             disabled=engine.tempo == 0,
             use_container_width=True,
         ):
-            _inicializar_engine(cenario, algoritmo, quantum)
+            _inicializar_engine(cenario, algoritmo, quantum, ordem_escolhida)
             st.rerun()
 
     with col_completo:
@@ -273,7 +379,6 @@ def renderizar_app() -> None:
 
     resultado = engine.gerar_resultado()
     if resultado.gantt:
-
         blocos_unificados = _unificar_slots_gantt(resultado.gantt)
         blocos_html = [
             '<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">'

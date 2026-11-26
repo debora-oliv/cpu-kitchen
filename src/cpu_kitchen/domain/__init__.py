@@ -8,6 +8,7 @@ from cpu_kitchen.domain.models import (
     Pedido,
     ResultadoTurno,
     SlotGantt,
+    montar_pedidos_por_ordem,
 )
 from cpu_kitchen.domain.scoring import avaliar_turno
 from cpu_kitchen.domain.strategies import (
@@ -30,4 +31,5 @@ __all__ = [
     "SlotGantt",
     "avaliar_turno",
     "criar_escalonador",
+    "montar_pedidos_por_ordem",
 ]

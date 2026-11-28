@@ -1,0 +1,1462 @@
+=== data/cenarios.json ===
+{
+  "versao": "1.0.0",
+  "fase": "Cozinha Principal — Turno Único",
+  "cenarios": [
+    {
+      "id": "etapa_1_introducao",
+      "titulo": "1. Introdução (Fluxo Básico)",
+      "descricao": "Observe a chegada dos pedidos na bancada, o relógio da cozinha e a primeira troca de panela.",
+      "algoritmo_fixo": "FCFS",
+      "quantum_padrao": 2,
+      "melhor_espera_media": 1.33,
+      "selo": "Aprendiz de Cozinha",
+      "pedidos": [
+        {
+          "id": "P1",
+          "nome": "Omelete",
+          "chegada": 0,
+          "burst": 3,
+          "cor": "#FF6B6B"
+        },
+        {
+          "id": "P2",
+          "nome": "Torrada",
+          "chegada": 2,
+          "burst": 2,
+          "cor": "#4ECDC4"
+        },
+        {
+          "id": "P3",
+          "nome": "Café",
+          "chegada": 5,
+          "burst": 2,
+          "cor": "#FFE66D"
+        }
+      ]
+    },
+    {
+      "id": "etapa_2_fcfs",
+      "titulo": "2. Turno FCFS (Ordem de Chegada)",
+      "descricao": "O chef conclui cada pedido na ordem de chegada, sem interrupção. Observe o impacto na espera da bancada.",
+      "algoritmo_fixo": "FCFS",
+      "quantum_padrao": 2,
+      "melhor_espera_media": 2.0,
+      "selo": "Mestre da Fila Única",
+      "pedidos": [
+        {
+          "id": "P1",
+          "nome": "Assado Lento",
+          "chegada": 0,
+          "burst": 3,
+          "cor": "#FF6B6B"
+        },
+        {
+          "id": "P2",
+          "nome": "Salada Rápida",
+          "chegada": 1,
+          "burst": 2,
+          "cor": "#4ECDC4"
+        },
+        {
+          "id": "P3",
+          "nome": "Suco Natural",
+          "chegada": 4,
+          "burst": 2,
+          "cor": "#45B7D1"
+        }
+      ]
+    },
+    {
+      "id": "etapa_3_round_robin",
+      "titulo": "3. Turno Round Robin (Ajuste de Quantum)",
+      "descricao": "Ajuste o quantum: valores muito baixos geram excesso de blocos cinzas (troca de panela); valores altos agem como FCFS.",
+      "algoritmo_fixo": "Round Robin",
+      "quantum_padrao": 1,
+      "melhor_espera_media": 6.0,
+      "selo": "Chef de Round Robin",
+      "pedidos": [
+        {
+          "id": "P1",
+          "nome": "Lasanha",
+          "chegada": 0,
+          "burst": 6,
+          "cor": "#FF6B6B"
+        },
+        {
+          "id": "P2",
+          "nome": "Hambúrguer",
+          "chegada": 1,
+          "burst": 3,
+          "cor": "#4ECDC4"
+        },
+        {
+          "id": "P3",
+          "nome": "Batata Frita",
+          "chegada": 2,
+          "burst": 3,
+          "cor": "#FFA07A"
+        }
+      ]
+    },
+    {
+      "id": "etapa_4_desafio",
+      "titulo": "4. Desafio Final (Comparação Justa)",
+      "descricao": "Execute o mesmo cenário em FCFS e em Round Robin para comparar abandonos, trocas de panela e eficiência.",
+      "algoritmo_fixo": null,
+      "quantum_padrao": 3,
+      "melhor_espera_media": 5.5,
+      "selo": "Arquiteto de CPU",
+      "pedidos": [
+        {
+          "id": "P1",
+          "nome": "Feijoada",
+          "chegada": 0,
+          "burst": 6,
+          "cor": "#FF6B6B"
+        },
+        {
+          "id": "P2",
+          "nome": "Tapioca",
+          "chegada": 1,
+          "burst": 3,
+          "cor": "#4ECDC4"
+        },
+        {
+          "id": "P3",
+          "nome": "Açaí",
+          "chegada": 2,
+          "burst": 3,
+          "cor": "#A78BFA"
+        },
+        {
+          "id": "P4",
+          "nome": "Peixe Frito",
+          "chegada": 12,
+          "burst": 2,
+          "cor": "#FBBF24"
+        }
+      ]
+    }
+  ]
+}
+=== src/cpu_kitchen/adapters/__init__.py ===
+"""Adaptadores de interface (CLI e Streamlit) do CPU Kitchen."""
+=== src/cpu_kitchen/adapters/cli.py ===
+"""Adaptador de linha de comando (CLI) para demonstração no terminal."""
+
+from cpu_kitchen.application import carregar_cenarios
+from cpu_kitchen.domain import (
+    CenarioTurno,
+    CozinhaEngine,
+    ResultadoTurno,
+    avaliar_turno,
+    criar_escalonador,
+)
+
+
+def _selecionar_cenario(cenarios: list[CenarioTurno]) -> CenarioTurno:
+    """Exibe o menu de etapas da fase única e retorna o cenário escolhido."""
+    print("\n=== CPU KITCHEN — ESCALONAMENTO DE CPU (CONSOLE) ===")
+    for idx, cenario in enumerate(cenarios, start=1):
+        algo_info = cenario.algoritmo_fixo or "Livre (FCFS ou Round Robin)"
+        print(f"  [{idx}] {cenario.titulo} | Algoritmo: {algo_info}")
+
+    while True:
+        escolha = input("\nEscolha o número da etapa: ").strip()
+        if escolha.isdigit() and 1 <= int(escolha) <= len(cenarios):
+            return cenarios[int(escolha) - 1]
+        print("Opção inválida. Digite o número correspondente à etapa.")
+
+
+def _configurar_escalonador(cenario: CenarioTurno) -> tuple[str, int]:
+    """Define o algoritmo e o quantum com base nas travas do cenário."""
+    if cenario.algoritmo_fixo:
+        algoritmo = cenario.algoritmo_fixo
+        print(f"\nAlgoritmo fixo desta etapa: {algoritmo}")
+    else:
+        print("\nEscolha o algoritmo para o Desafio Final:")
+        print("  [1] FCFS (First-Come, First-Served)")
+        print("  [2] Round Robin (Preemptivo por Quantum)")
+        while True:
+            opcao = input("Opção [1/2]: ").strip()
+            if opcao == "1":
+                algoritmo = "FCFS"
+                break
+            if opcao == "2":
+                algoritmo = "Round Robin"
+                break
+            print("Digite 1 para FCFS ou 2 para Round Robin.")
+
+    quantum = 0
+    if algoritmo == "Round Robin":
+        entrada_q = input(
+            f"Informe o Quantum (Enter para padrão = {cenario.quantum_padrao}): "
+        ).strip()
+        if entrada_q.isdigit() and int(entrada_q) >= 1:
+            quantum = int(entrada_q)
+        else:
+            quantum = cenario.quantum_padrao
+
+    return algoritmo, quantum
+
+
+def _renderizar_estado_cozinha(engine: CozinhaEngine) -> None:
+    """Desenha no terminal o estado atual das estações da cozinha."""
+    aguardando = [
+        f"{p.id}(t={p.chegada})" for p in engine.pedidos if p.status == "AGUARDANDO"
+    ]
+    bancada = [
+        f"{p.id}[rest:{p.restante}u | esp:{p.espera}/{p.limite_paciencia}u]"
+        for p in engine.fila_prontos
+    ]
+    concluidos = [p.id for p in engine.pedidos if p.status == "CONCLUIDO"]
+    abandonados = [p.id for p in engine.pedidos if p.status == "ABANDONADO"]
+
+    if engine.pedido_atual and engine.estado_chef == "TROCANDO":
+        status_fogao = f"TROCANDO PANELA -> {engine.pedido_atual.id} (Bloco Cinza)"
+    elif engine.pedido_atual:
+        status_fogao = (
+            f"COZINHANDO {engine.pedido_atual.id} - {engine.pedido_atual.nome} "
+            f"(restante: {engine.pedido_atual.restante}u)"
+        )
+    else:
+        status_fogao = "OCIOSO (Aguardando pedidos)"
+
+    print("-" * 72)
+    print(f"RELÓGIO: t = {engine.tempo}u | ALGORITMO: {engine.escalonador.nome}")
+    print(f"  1. Balcão (A chegar)   : {', '.join(aguardando) or 'Nenhum'}")
+    print(f"  2. Bancada (Fila)      : {' -> '.join(bancada) or 'Vazia'}")
+    print(f"  3. Chef / Fogão (CPU)  : {status_fogao}")
+    print(f"  4. Entregues           : {', '.join(concluidos) or 'Nenhum'}")
+    if abandonados:
+        print(f"  !  Abandonos (-1 ★)    : {', '.join(abandonados)}")
+
+    eventos_recentes = [e for e in engine.eventos if e.tempo == engine.tempo - 1]
+    for ev in eventos_recentes:
+        print(f"     -> [{ev.tipo}] {ev.mensagem}")
+
+
+def _exibir_relatorio_final(
+    cenario: CenarioTurno,
+    resultado: ResultadoTurno,
+) -> None:
+    """Imprime o Gráfico de Gantt textual, métricas, estrelas e dicas."""
+    avaliacao = avaliar_turno(
+        resultado=resultado,
+        melhor_espera_media=cenario.melhor_espera_media,
+        selo_turno=cenario.selo,
+    )
+
+    print("\n" + "=" * 72)
+    print(f"QUADRO DE RESULTADOS — {cenario.titulo}")
+    print("=" * 72)
+
+    linha_gantt = " ".join(f"[{slot.label}]" for slot in resultado.gantt)
+    print(f"\nGráfico de Gantt ({resultado.tempo_total}u totais):")
+    print(f"  {linha_gantt}")
+
+    estrelas_str = "★" * avaliacao.estrelas + "☆" * (3 - avaliacao.estrelas)
+    print(f"\nDesempenho:")
+    print(f"  Estrelas         : {estrelas_str} ({avaliacao.estrelas}/3)")
+    print(f"  Eficiência       : {avaliacao.eficiencia_percentual:.1f}%")
+    print(
+        f"  Espera Média     : {avaliacao.espera_media:.2f}u "
+        f"(Ideal: {avaliacao.melhor_espera_media:.2f}u)"
+    )
+    print(f"  Trocas de Panela : {resultado.trocas_panela}u")
+    print(f"  Abandonos        : {resultado.abandonos}")
+
+    if avaliacao.selo_conquistado:
+        print(f"\n  [SELO DESBLOQUEADO]: {avaliacao.selo_conquistado}")
+
+    print("\nDetalhamento por Pedido:")
+    for p in resultado.pedidos:
+        print(
+            f"  - {p.id} ({p.nome}): Status={p.status} | "
+            f"Espera={p.espera}u / Paciência={p.limite_paciencia}u"
+        )
+
+    if resultado.dicas:
+        print("\nDicas do Chef:")
+        for dica in resultado.dicas:
+            print(f"  * {dica}")
+    print("=" * 72 + "\n")
+
+
+def executar_cli() -> None:
+    """Ponto de entrada principal da interface de terminal."""
+    cenarios = carregar_cenarios()
+    cenario = _selecionar_cenario(cenarios)
+    print(f"\nObjetivo: {cenario.descricao}")
+
+    algoritmo, quantum = _configurar_escalonador(cenario)
+    escalonador = criar_escalonador(algoritmo=algoritmo, quantum=quantum)
+    engine = CozinhaEngine(pedidos=cenario.pedidos, escalonador=escalonador)
+
+    modo = input("\nModo: [1] Completo instantâneo | [2] Passo a passo (tick): ").strip()
+    if modo == "2":
+        print("\nPressione ENTER para avançar 1 unidade de tempo (ou 'q' para concluir direto).")
+        while engine.tem_trabalho_pendente():
+            _renderizar_estado_cozinha(engine)
+            comando = input("Avançar tick > ").strip().lower()
+            if comando == "q":
+                engine.executar_completo()
+                break
+            engine.tick()
+        _renderizar_estado_cozinha(engine)
+        resultado = engine.gerar_resultado()
+    else:
+        resultado = engine.executar_completo()
+
+    _exibir_relatorio_final(cenario=cenario, resultado=resultado)
+
+
+if __name__ == "__main__":
+    executar_cli()
+=== src/cpu_kitchen/adapters/streamlit_app.py ===
+"""Adaptador web whitebox em Streamlit para o protótipo CPU Kitchen."""
+
+import sys
+from pathlib import Path
+
+ROOT_SRC = Path(__file__).resolve().parents[2]
+if str(ROOT_SRC) not in sys.path:
+    sys.path.insert(0, str(ROOT_SRC))
+
+import streamlit as st
+
+from cpu_kitchen.application import carregar_cenarios
+from cpu_kitchen.domain import (
+    CenarioTurno,
+    CozinhaEngine,
+    Pedido,
+    SlotGantt,
+    avaliar_turno,
+    criar_escalonador,
+)
+
+st.set_page_config(
+    page_title="CPU Kitchen",
+    page_icon="🍳",
+    layout="wide",
+)
+
+
+def _inicializar_engine(
+    cenario: CenarioTurno,
+    algoritmo: str,
+    quantum: int,
+) -> CozinhaEngine:
+    """Cria uma nova instância do motor e salva no estado da sessão."""
+    escalonador = criar_escalonador(algoritmo=algoritmo, quantum=quantum)
+    engine = CozinhaEngine(pedidos=cenario.pedidos, escalonador=escalonador)
+    st.session_state["engine"] = engine
+    st.session_state["assinatura_config"] = (cenario.id, algoritmo, quantum)
+    return engine
+
+
+def _retroceder_um_tick(
+    cenario: CenarioTurno,
+    algoritmo: str,
+    quantum: int,
+    tempo_atual: int,
+) -> CozinhaEngine:
+    """Reconstrói deterministicamente o estado da cozinha em (tempo_atual - 1)."""
+    novo_engine = _inicializar_engine(cenario, algoritmo, quantum)
+    tempo_alvo = max(0, tempo_atual - 1)
+    for _ in range(tempo_alvo):
+        if not novo_engine.tem_trabalho_pendente():
+            break
+        novo_engine.tick()
+    return novo_engine
+
+
+def _unificar_slots_gantt(gantt: list[SlotGantt]) -> list[dict]:
+    """Unifica slots consecutivos de mesma cor, rótulo e tipo em blocos contínuos."""
+    blocos_unificados: list[dict] = []
+    for slot in gantt:
+        if (
+            blocos_unificados
+            and blocos_unificados[-1]["cor"] == slot.cor
+            and blocos_unificados[-1]["label"] == slot.label
+            and blocos_unificados[-1]["tipo"] == slot.tipo
+        ):
+            blocos_unificados[-1]["fim"] = slot.tempo + 1
+            blocos_unificados[-1]["duracao"] += 1
+        else:
+            blocos_unificados.append(
+                {
+                    "tipo": slot.tipo,
+                    "label": slot.label,
+                    "cor": slot.cor,
+                    "inicio": slot.tempo,
+                    "fim": slot.tempo + 1,
+                    "duracao": 1,
+                }
+            )
+    return blocos_unificados
+
+
+def _renderizar_cartao_pedido(pedido: Pedido, detalhe_extra: str = "") -> str:
+    """Gera o HTML de um card colorido preservando a identidade visual do processo."""
+    return (
+        f'<div style="border-left: 6px solid {pedido.cor}; '
+        f"background-color: #F8FAFC; color: #0F172A; "
+        f'padding: 8px 10px; border-radius: 6px; margin-bottom: 6px; '
+        f'border: 1px solid #CBD5E1; border-left-width: 6px;">'
+        f"<strong>{pedido.id} — {pedido.nome}</strong><br>"
+        f'<span style="font-size: 12px;">'
+        f"Chegada: <code>{pedido.chegada}u</code> | "
+        f"Restante: <code>{pedido.restante}/{pedido.burst}u</code> | "
+        f"Espera: <code>{pedido.espera}/{pedido.limite_paciencia}u</code>"
+        f"{detalhe_extra}</span></div>"
+    )
+
+
+def _renderizar_estacoes_cozinha(engine: CozinhaEngine) -> None:
+    """Exibe a planta conceitual da cozinha em 4 estações sincronizadas."""
+    st.subheader("Estado Atual das Estações")
+    col_chegada, col_bancada, col_chef, col_saida = st.columns(4)
+
+    with col_chegada:
+        st.markdown("**1. Balcão de Chegada**")
+        aguardando = [p for p in engine.pedidos if p.status == "AGUARDANDO"]
+        if not aguardando:
+            st.markdown(
+                '<div style="background-color: #634f46; color: #cccccc; '
+                'padding: 14px; border-radius: 6px; text-align: center;">'
+                "Nenhum pedido pendente</div>",
+                unsafe_allow_html=True,
+            )
+        for p in aguardando:
+            st.markdown(_renderizar_cartao_pedido(p), unsafe_allow_html=True)
+
+    with col_bancada:
+        st.markdown("**2. Bancada / Fila de Prontos**")
+        if not engine.fila_prontos:
+            st.markdown(
+                '<div style="background-color: #695945; color: #cccccc; '
+                'padding: 14px; border-radius: 6px; text-align: center;">'
+                "Bancada vazia</div>",
+                unsafe_allow_html=True,
+            )
+        for pos, p in enumerate(engine.fila_prontos, start=1):
+            st.markdown(
+                _renderizar_cartao_pedido(p, f" | Posição: <code>#{pos}</code>"),
+                unsafe_allow_html=True,
+            )
+
+    with col_chef:
+        st.markdown("**3. Chef / CPU**")
+        if engine.pedido_atual and engine.estado_chef == "TROCANDO":
+            st.markdown(
+                '<div style="background-color: #9E9E9E; color: #cccccc; '
+                'padding: 14px; border-radius: 6px; font-weight: bold; text-align: center;">'
+                f"🔄 TROCANDO PANELA (-1u)<br>"
+                f'<span style="font-size: 12px; font-weight: normal;">'
+                f"Preparando fogão para {engine.pedido_atual.id}</span></div>",
+                unsafe_allow_html=True,
+            )
+        elif engine.pedido_atual:
+            st.markdown(
+                _renderizar_cartao_pedido(
+                    engine.pedido_atual,
+                    f" | Quantum usado: <code>{engine.quantum_usado}u</code>",
+                ),
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                '<div style="background-color: #52585E; color: #cccccc; '
+                'padding: 14px; border-radius: 6px; text-align: center;">'
+                "Chef Ocioso</div>",
+                unsafe_allow_html=True,
+            )
+
+    with col_saida:
+        st.markdown("**4. Entrega / Saída**")
+        finalizados = [
+            p for p in engine.pedidos if p.status in ("CONCLUIDO", "ABANDONADO")
+        ]
+        if not finalizados:
+            st.markdown(
+                '<div style="background-color: #47523f; color: #cccccc; '
+                'padding: 14px; border-radius: 6px; text-align: center;">'
+                "Nenhum pedido finalizado</div>",
+                unsafe_allow_html=True,
+            )
+        for p in finalizados:
+            tag = " | ✅ Servido" if p.status == "CONCLUIDO" else " | ❌ Abandonado"
+            st.markdown(_renderizar_cartao_pedido(p, tag), unsafe_allow_html=True)
+
+
+def renderizar_app() -> None:
+    """Monta a interface principal do protótipo em Streamlit."""
+    st.title("🍳 CPU Kitchen")
+
+    cenarios = carregar_cenarios()
+    mapa_cenarios = {c.titulo: c for c in cenarios}
+
+    # --- SELETOR DE FASES EM LARGURA TOTAL ---
+    titulo_escolhido = st.selectbox(
+        "Fases Disponíveis:",
+        options=list(mapa_cenarios.keys()),
+    )
+    cenario = mapa_cenarios[titulo_escolhido]
+    st.caption(cenario.descricao)
+
+    c_algo, c_quant = st.columns(2)
+    with c_algo:
+        if cenario.algoritmo_fixo:
+            algoritmo = cenario.algoritmo_fixo
+        else:
+            algoritmo = st.radio(
+                "Algoritmo de Escalonamento",
+                options=["FCFS", "Round Robin"],
+                horizontal=True,
+            )
+
+    with c_quant:
+        if algoritmo == "Round Robin":
+            quantum = st.slider(
+                "Quantum (unidades de tempo)",
+                min_value=1,
+                max_value=6,
+                value=cenario.quantum_padrao,
+            )
+        else:
+            quantum = 0
+
+    assinatura_atual = (cenario.id, algoritmo, quantum)
+    if (
+        "engine" not in st.session_state
+        or st.session_state.get("assinatura_config") != assinatura_atual
+    ):
+        _inicializar_engine(cenario, algoritmo, quantum)
+
+    engine: CozinhaEngine = st.session_state["engine"]
+
+    # --- ESTAÇÕES DA COZINHA ---
+    st.divider()
+    _renderizar_estacoes_cozinha(engine)
+
+    # --- RELÓGIO E CONTROLES ABAIXO DAS ESTAÇÕES ---
+    st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
+    col_relogio, col_retornar, col_avancar, col_reiniciar, col_completo = st.columns(
+        [1.2, 1, 1, 1, 1.5],
+        vertical_alignment="center",
+    )
+
+    with col_relogio:
+        st.metric("**Relógio da Cozinha**", f"{engine.tempo}u")
+
+    with col_retornar:
+        if st.button(
+            "<",
+            disabled=engine.tempo == 0,
+            use_container_width=True,
+        ):
+            _retroceder_um_tick(cenario, algoritmo, quantum, engine.tempo)
+            st.rerun()
+
+    with col_avancar:
+        if st.button(
+            ">",
+            disabled=not engine.tem_trabalho_pendente(),
+            use_container_width=True,
+        ):
+            engine.tick()
+            st.rerun()
+
+    with col_reiniciar:
+        if st.button(
+            "⟳",
+            disabled=engine.tempo == 0,
+            use_container_width=True,
+        ):
+            _inicializar_engine(cenario, algoritmo, quantum)
+            st.rerun()
+
+    with col_completo:
+        if st.button(
+            "▶ Executar Turno Completo",
+            type="primary",
+            disabled=not engine.tem_trabalho_pendente(),
+            use_container_width=True,
+        ):
+            engine.executar_completo()
+            st.rerun()
+
+    resultado = engine.gerar_resultado()
+    if resultado.gantt:
+
+        blocos_unificados = _unificar_slots_gantt(resultado.gantt)
+        blocos_html = [
+            '<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">'
+        ]
+        for bloco in blocos_unificados:
+            cor_texto = "#FFFFFF" if bloco["tipo"] == "TROCA_PANELA" else "#111827"
+            largura_min = max(64, bloco["duracao"] * 56)
+            intervalo_txt = f"{bloco['inicio']}u → {bloco['fim']}u ({bloco['duracao']}u)"
+            blocos_html.append(
+                f'<div style="background-color: {bloco["cor"]}; color: {cor_texto}; '
+                f"padding: 8px 12px; border-radius: 6px; text-align: center; "
+                f"flex: {bloco['duracao']} 1 {largura_min}px; "
+                f'font-weight: bold; border: 1px solid #94A3B8;">'
+                f"{bloco['label']}<br>"
+                f'<span style="font-size: 11px; font-weight: normal;">{intervalo_txt}</span>'
+                f"</div>"
+            )
+        blocos_html.append("</div>")
+        st.markdown("".join(blocos_html), unsafe_allow_html=True)
+
+    if not engine.tem_trabalho_pendente():
+        avaliacao = avaliar_turno(
+            resultado=resultado,
+            melhor_espera_media=cenario.melhor_espera_media,
+            selo_turno=cenario.selo,
+        )
+
+        st.divider()
+        st.subheader("Resultados do Turno")
+
+        m1, m2, m3, m4 = st.columns(4)
+        estrelas_visuais = (
+            "⭐" * avaliacao.estrelas if avaliacao.estrelas > 0 else "0 estrelas"
+        )
+        m1.metric("Estrelas", estrelas_visuais)
+        m2.metric("Eficiência", f"{avaliacao.eficiencia_percentual:.0f}%")
+        m3.metric(
+            "Espera Média",
+            f"{avaliacao.espera_media:.2f}u",
+            delta=f"Ideal: {avaliacao.melhor_espera_media:.2f}u",
+            delta_color="off",
+        )
+        m4.metric("Trocas de Panela", f"{resultado.trocas_panela}u")
+
+        if avaliacao.selo_conquistado:
+            st.success(f"🏅 **Selo Conquistado:** {avaliacao.selo_conquistado}")
+
+        st.markdown("**Paciência dos Clientes (Espera vs. Limite 2x Preparo):**")
+        for p in resultado.pedidos:
+            progresso = min(p.espera / p.limite_paciencia, 1.0)
+            status_legenda = (
+                "✅ Cliente satisfeito"
+                if p.status == "CONCLUIDO"
+                else "❌ Cliente foi embora"
+            )
+            st.write(
+                f"**{p.id} ({p.nome})** — Espera: `{p.espera}u / {p.limite_paciencia}u` — {status_legenda}"
+            )
+            st.progress(progresso)
+
+        for dica in resultado.dicas:
+            st.warning(f"💡 **Dica do Chef:** {dica}")
+
+
+if __name__ == "__main__":
+    renderizar_app()
+=== src/cpu_kitchen/__init__.py ===
+
+=== src/cpu_kitchen/domain/models.py ===
+"""Modelos de domínio para a simulação de escalonamento de CPU na cozinha."""
+
+from dataclasses import dataclass, field
+from typing import Literal
+
+StatusPedido = Literal[
+    "AGUARDANDO",
+    "NA_FILA",
+    "COZINHANDO",
+    "CONCLUIDO",
+    "ABANDONADO",
+]
+
+TipoSlotGantt = Literal["PEDIDO", "TROCA_PANELA", "OCIOSO"]
+
+
+@dataclass
+class Pedido:
+    """Representa um processo (PCB) na bancada da cozinha.
+
+    Attributes:
+        id: Identificador curto do pedido (ex: 'P1').
+        nome: Nome legível do prato para exibição.
+        chegada: Instante (tick) em que o pedido chega ao balcão.
+        burst: Tempo total de preparo necessário na CPU/chef.
+        cor: Código hexadecimal da cor associada ao pedido.
+        restante: Unidades de tempo de preparo que ainda faltam.
+        espera: Tempo acumulado aguardando na fila de prontos.
+        tempo_conclusao: Instante em que o pedido foi finalizado, se concluído.
+        status: Estado atual do pedido no ciclo de vida da cozinha.
+    """
+
+    id: str
+    nome: str
+    chegada: int
+    burst: int
+    cor: str
+    restante: int = field(init=False)
+    espera: int = 0
+    tempo_conclusao: int | None = None
+    status: StatusPedido = "AGUARDANDO"
+
+    def __post_init__(self) -> None:
+        """Inicializa o tempo restante com o tempo total de burst."""
+        self.restante = self.burst
+
+    @property
+    def limite_paciencia(self) -> int:
+        """Calcula o limite determinístico de espera (2x o tempo de preparo)."""
+        return 2 * self.burst
+
+    @property
+    def paciencia_restante(self) -> int:
+        """Retorna quantas unidades de tempo restam antes do cliente desistir."""
+        return max(0, self.limite_paciencia - self.espera)
+
+
+@dataclass(frozen=True)
+class SlotGantt:
+    """Representa uma unidade de tempo na linha do tempo da CPU/chef.
+
+    Attributes:
+        tempo: Instante da simulação correspondente ao bloco.
+        tipo: Categoria do slot ('PEDIDO', 'TROCA_PANELA' ou 'OCIOSO').
+        label: Rótulo curto exibido dentro do bloco.
+        cor: Cor de fundo do bloco no diagrama.
+        pedido_id: ID do pedido em execução, quando aplicável.
+    """
+
+    tempo: int
+    tipo: TipoSlotGantt
+    label: str
+    cor: str
+    pedido_id: str | None = None
+
+
+@dataclass(frozen=True)
+class EventoTurno:
+    """Registra um acontecimento relevante em um tick específico.
+
+    Attributes:
+        tempo: Instante em que o evento ocorreu.
+        tipo: Código do evento (CHEGADA, TROCA_PANELA, PREEMPCAO, CONCLUSAO, ABANDONO).
+        mensagem: Descrição legível do evento para logs ou narração.
+        pedido_id: Identificador do pedido relacionado ao evento, se houver.
+    """
+
+    tempo: int
+    tipo: str
+    mensagem: str
+    pedido_id: str | None = None
+
+
+@dataclass(frozen=True)
+class CenarioTurno:
+    """Configuração determinística de uma etapa da fase única.
+
+    Attributes:
+        id: Identificador único da etapa.
+        titulo: Nome da etapa exibido ao jogador.
+        descricao: Objetivo pedagógico da etapa.
+        algoritmo_fixo: Nome do algoritmo travado ('FCFS', 'Round Robin') ou None se livre.
+        quantum_padrao: Valor inicial sugerido para o quantum.
+        melhor_espera_media: Referência ótima de espera média para cálculo de eficiência.
+        selo: Nome do selo único desbloqueado ao atingir 3 estrelas.
+        pedidos: Lista base de pedidos da etapa.
+    """
+
+    id: str
+    titulo: str
+    descricao: str
+    algoritmo_fixo: str | None
+    quantum_padrao: int
+    melhor_espera_media: float
+    selo: str
+    pedidos: list[Pedido]
+
+
+@dataclass(frozen=True)
+class ResultadoTurno:
+    """Consolida os dados produzidos após a execução de um turno.
+
+    Attributes:
+        algoritmo: Nome da política de escalonamento utilizada.
+        quantum: Valor de quantum configurado (0 para algoritmos não-preemptivos).
+        pedidos: Estado final de todos os pedidos do turno.
+        gantt: Sequência cronológica de blocos executados pela CPU.
+        eventos: Histórico detalhado de eventos ocorridos tick a tick.
+        tempo_total: Duração total da simulação em unidades de tempo.
+        trocas_panela: Total de unidades de tempo gastas em troca de contexto.
+        abandonos: Quantidade de clientes que foram embora por excesso de espera.
+        dicas: Orientações pedagógicas geradas a partir dos erros do turno.
+    """
+
+    algoritmo: str
+    quantum: int
+    pedidos: list[Pedido]
+    gantt: list[SlotGantt]
+    eventos: list[EventoTurno]
+    tempo_total: int
+    trocas_panela: int
+    abandonos: int
+    dicas: list[str]
+
+
+@dataclass(frozen=True)
+class AvaliacaoTurno:
+    """Resultado da avaliação de desempenho e recompensas do jogador.
+
+    Attributes:
+        estrelas: Pontuação final de 0 a 3 estrelas.
+        eficiencia_percentual: Razão percentual entre a espera ideal e a obtida.
+        espera_media: Tempo médio de espera dos pedidos no turno.
+        melhor_espera_media: Tempo médio de espera de referência do cenário.
+        selo_conquistado: Nome do selo se atingiu 3 estrelas, ou None.
+    """
+
+    estrelas: int
+    eficiencia_percentual: float
+    espera_media: float
+    melhor_espera_media: float
+    selo_conquistado: str | None
+=== src/cpu_kitchen/domain/__init__.py ===
+"""Exportações públicas do núcleo de domínio do CPU Kitchen."""
+
+from cpu_kitchen.domain.engine import CozinhaEngine
+from cpu_kitchen.domain.models import (
+    AvaliacaoTurno,
+    CenarioTurno,
+    EventoTurno,
+    Pedido,
+    ResultadoTurno,
+    SlotGantt,
+)
+from cpu_kitchen.domain.scoring import avaliar_turno
+from cpu_kitchen.domain.strategies import (
+    EscalonadorStrategy,
+    FCFSStrategy,
+    RoundRobinStrategy,
+    criar_escalonador,
+)
+
+__all__ = [
+    "AvaliacaoTurno",
+    "CenarioTurno",
+    "CozinhaEngine",
+    "EscalonadorStrategy",
+    "EventoTurno",
+    "FCFSStrategy",
+    "Pedido",
+    "ResultadoTurno",
+    "RoundRobinStrategy",
+    "SlotGantt",
+    "avaliar_turno",
+    "criar_escalonador",
+]
+=== src/cpu_kitchen/domain/strategies.py ===
+"""Estratégias de escalonamento de CPU (FCFS e Round Robin)."""
+
+from abc import ABC, abstractmethod
+
+from cpu_kitchen.domain.models import Pedido
+
+
+class EscalonadorStrategy(ABC):
+    """Contrato base para políticas de escalonamento do chef."""
+
+    @property
+    @abstractmethod
+    def nome(self) -> str:
+        """Retorna o nome legível do algoritmo."""
+
+    @property
+    def quantum(self) -> int:
+        """Retorna o quantum configurado (0 quando não aplicável)."""
+        return 0
+
+    @abstractmethod
+    def deve_preemptar(self, quantum_usado: int, fila_prontos: list[Pedido]) -> bool:
+        """Decide se o pedido atual deve liberar o fogão ao fim do tick.
+
+        Args:
+            quantum_usado: Ticks consecutivos já executados pelo pedido atual.
+            fila_prontos: Pedidos atualmente aguardando na bancada.
+
+        Returns:
+            True se o pedido deve voltar para o fim da fila; False caso contrário.
+        """
+
+
+class FCFSStrategy(EscalonadorStrategy):
+    """Política First-Come, First-Served (não-preemptiva)."""
+
+    @property
+    def nome(self) -> str:
+        """Retorna o identificador do algoritmo FCFS."""
+        return "FCFS"
+
+    def deve_preemptar(self, quantum_usado: int, fila_prontos: list[Pedido]) -> bool:
+        """Nunca interrompe um pedido antes de sua conclusão."""
+        return False
+
+
+class RoundRobinStrategy(EscalonadorStrategy):
+    """Política Round Robin (preemptiva por fatia de tempo)."""
+
+    def __init__(self, quantum: int) -> None:
+        """Inicializa a estratégia Round Robin com um quantum fixo.
+
+        Args:
+            quantum: Número máximo de ticks consecutivos por pedido na CPU.
+
+        Raises:
+            ValueError: Se o quantum informado for menor que 1.
+        """
+        if quantum < 1:
+            raise ValueError("O quantum deve ser maior ou igual a 1.")
+        self._quantum = quantum
+
+    @property
+    def nome(self) -> str:
+        """Retorna o identificador do algoritmo Round Robin."""
+        return "Round Robin"
+
+    @property
+    def quantum(self) -> int:
+        """Retorna o valor do quantum configurado."""
+        return self._quantum
+
+    def deve_preemptar(self, quantum_usado: int, fila_prontos: list[Pedido]) -> bool:
+        """Preempta quando o quantum se esgota e existe outro pedido na bancada."""
+        return quantum_usado >= self._quantum and len(fila_prontos) > 0
+
+
+def criar_escalonador(algoritmo: str, quantum: int = 2) -> EscalonadorStrategy:
+    """Instancia a estratégia de escalonamento a partir de seu nome.
+
+    Args:
+        algoritmo: Nome do algoritmo ('FCFS' ou 'Round Robin').
+        quantum: Valor do quantum caso o algoritmo seja Round Robin.
+
+    Returns:
+        Instância concreta de EscalonadorStrategy.
+
+    Raises:
+        ValueError: Se o nome do algoritmo não for suportado.
+    """
+    normalizado = algoritmo.strip().upper()
+    if normalizado == "FCFS":
+        return FCFSStrategy()
+    if normalizado in ("ROUND ROBIN", "RR"):
+        return RoundRobinStrategy(quantum=quantum)
+    raise ValueError(f"Algoritmo de escalonamento desconhecido: '{algoritmo}'.")
+=== src/cpu_kitchen/domain/engine.py ===
+"""Motor de simulação determinístico tick-a-tick da cozinha."""
+
+import copy
+from typing import Literal
+
+from cpu_kitchen.domain.models import (
+    EventoTurno,
+    Pedido,
+    ResultadoTurno,
+    SlotGantt,
+)
+from cpu_kitchen.domain.strategies import EscalonadorStrategy
+
+EstadoChef = Literal["OCIOSO", "TROCANDO", "COZINHANDO"]
+
+COR_TROCA_PANELA = "#9E9E9E"
+COR_OCIOSO = "#E5E7EB"
+
+
+class CozinhaEngine:
+    """Simula a execução de pedidos na CPU/chef unidade por unidade de tempo."""
+
+    def __init__(self, pedidos: list[Pedido], escalonador: EscalonadorStrategy) -> None:
+        """Inicializa o motor com uma cópia isolada dos pedidos do cenário.
+
+        Args:
+            pedidos: Lista de pedidos configurados para o turno.
+            escalonador: Estratégia que dita a preempção do chef.
+        """
+        self.pedidos: list[Pedido] = copy.deepcopy(pedidos)
+        self.escalonador: EscalonadorStrategy = escalonador
+
+        self.tempo: int = 0
+        self.fila_prontos: list[Pedido] = []
+        self.pedido_atual: Pedido | None = None
+        self.ultimo_id_cozinhado: str | None = None
+        self.estado_chef: EstadoChef = "OCIOSO"
+        self.quantum_usado: int = 0
+
+        self.gantt: list[SlotGantt] = []
+        self.eventos: list[EventoTurno] = []
+        self.trocas_panela: int = 0
+        self.abandonos: int = 0
+        self._dicas: list[str] = []
+
+    def tem_trabalho_pendente(self) -> bool:
+        """Verifica se ainda há pedidos aguardando chegada, na fila ou no fogão."""
+        return any(
+            p.status in ("AGUARDANDO", "NA_FILA", "COZINHANDO") for p in self.pedidos
+        )
+
+    def tick(self) -> bool:
+        """Avança a simulação em exatamente 1 unidade de tempo.
+
+        Returns:
+            True se ainda restar trabalho pendente após este tick; False se encerrou.
+        """
+        if not self.tem_trabalho_pendente():
+            return False
+
+        self._processar_chegadas()
+
+        if self.estado_chef == "OCIOSO":
+            if not self._alocar_proximo_pedido():
+                self.gantt.append(
+                    SlotGantt(
+                        tempo=self.tempo,
+                        tipo="OCIOSO",
+                        label="Livre",
+                        cor=COR_OCIOSO,
+                    )
+                )
+                self.tempo += 1
+                return self.tem_trabalho_pendente()
+
+        if self.estado_chef == "TROCANDO":
+            self._executar_troca_panela()
+            self._verificar_paciencia_fila()
+        elif self.estado_chef == "COZINHANDO":
+            self._executar_cozimento()
+            self._verificar_paciencia_fila()
+            self._avaliar_fim_do_tick_cozimento()
+
+        self.tempo += 1
+
+        if not self.tem_trabalho_pendente():
+            self._avaliar_dicas_gerais()
+            return False
+
+        return True
+
+    def executar_completo(self, limite_ticks: int = 500) -> ResultadoTurno:
+        """Executa todos os ticks até a conclusão do turno.
+
+        Args:
+            limite_ticks: Trava de segurança contra loops infinitos.
+
+        Returns:
+            Objeto ResultadoTurno com métricas, Gantt, eventos e dicas.
+        """
+        while self.tem_trabalho_pendente() and self.tempo < limite_ticks:
+            self.tick()
+        return self.gerar_resultado()
+
+    def gerar_resultado(self) -> ResultadoTurno:
+        """Consolida o estado atual da simulação em um ResultadoTurno."""
+        dicas_unicas = list(dict.fromkeys(self._dicas))
+        return ResultadoTurno(
+            algoritmo=self.escalonador.nome,
+            quantum=self.escalonador.quantum,
+            pedidos=copy.deepcopy(self.pedidos),
+            gantt=list(self.gantt),
+            eventos=list(self.eventos),
+            tempo_total=self.tempo,
+            trocas_panela=self.trocas_panela,
+            abandonos=self.abandonos,
+            dicas=dicas_unicas,
+        )
+
+    def _processar_chegadas(self) -> None:
+        """Move pedidos cujo tempo de chegada bate com o relógio para a bancada."""
+        for pedido in self.pedidos:
+            if pedido.chegada == self.tempo and pedido.status == "AGUARDANDO":
+                pedido.status = "NA_FILA"
+                self.fila_prontos.append(pedido)
+                self.eventos.append(
+                    EventoTurno(
+                        tempo=self.tempo,
+                        tipo="CHEGADA",
+                        mensagem=f"{pedido.id} ({pedido.nome}) chegou na bancada.",
+                        pedido_id=pedido.id,
+                    )
+                )
+
+    def _alocar_proximo_pedido(self) -> bool:
+        """Retira o próximo pedido da fila e define se haverá troca de panela."""
+        if not self.fila_prontos:
+            return False
+
+        proximo = self.fila_prontos.pop(0)
+        proximo.status = "COZINHANDO"
+        self.pedido_atual = proximo
+        self.quantum_usado = 0
+
+        trocou_pedido = (
+            self.ultimo_id_cozinhado is not None
+            and self.ultimo_id_cozinhado != proximo.id
+        )
+        if trocou_pedido:
+            self.estado_chef = "TROCANDO"
+            self.eventos.append(
+                EventoTurno(
+                    tempo=self.tempo,
+                    tipo="TROCA_PANELA",
+                    mensagem=f"Chef trocando panela para preparar {proximo.id} (-1u).",
+                    pedido_id=proximo.id,
+                )
+            )
+        else:
+            self.estado_chef = "COZINHANDO"
+
+        return True
+
+    def _executar_troca_panela(self) -> None:
+        """Consome 1 unidade de tempo preparando o fogão para um novo pedido."""
+        self.trocas_panela += 1
+        self.gantt.append(
+            SlotGantt(
+                tempo=self.tempo,
+                tipo="TROCA_PANELA",
+                label="Troca",
+                cor=COR_TROCA_PANELA,
+            )
+        )
+        for pedido in self.fila_prontos:
+            pedido.espera += 1
+
+        if self.pedido_atual is not None:
+            self.pedido_atual.espera += 1
+
+        self.estado_chef = "COZINHANDO"
+
+    def _executar_cozimento(self) -> None:
+        """Processa 1 unidade de tempo do pedido ativo na CPU."""
+        if self.pedido_atual is None:
+            return
+
+        self.gantt.append(
+            SlotGantt(
+                tempo=self.tempo,
+                tipo="PEDIDO",
+                label=self.pedido_atual.id,
+                cor=self.pedido_atual.cor,
+                pedido_id=self.pedido_atual.id,
+            )
+        )
+        self.pedido_atual.restante -= 1
+        self.quantum_usado += 1
+        self.ultimo_id_cozinhado = self.pedido_atual.id
+
+        for pedido in self.fila_prontos:
+            pedido.espera += 1
+
+    def _verificar_paciencia_fila(self) -> None:
+        """Remove da bancada clientes cuja espera ultrapassou o limite."""
+        for pedido in list(self.fila_prontos):
+            if pedido.espera > pedido.limite_paciencia:
+                pedido.status = "ABANDONADO"
+                self.fila_prontos.remove(pedido)
+                self.abandonos += 1
+                self.eventos.append(
+                    EventoTurno(
+                        tempo=self.tempo,
+                        tipo="ABANDONO",
+                        mensagem=(
+                            f"{pedido.id} ({pedido.nome}) foi embora após esperar "
+                            f"{pedido.espera}u (limite: {pedido.limite_paciencia}u)."
+                        ),
+                        pedido_id=pedido.id,
+                    )
+                )
+                self._registrar_dica_abandono(pedido)
+
+    def _avaliar_fim_do_tick_cozimento(self) -> None:
+        """Verifica conclusão do pedido ou preempção ao término do tick."""
+        if self.pedido_atual is None:
+            return
+
+        if self.pedido_atual.restante == 0:
+            self.pedido_atual.status = "CONCLUIDO"
+            self.pedido_atual.tempo_conclusao = self.tempo + 1
+            self.eventos.append(
+                EventoTurno(
+                    tempo=self.tempo,
+                    tipo="CONCLUSAO",
+                    mensagem=f"{self.pedido_atual.id} ({self.pedido_atual.nome}) concluído!",
+                    pedido_id=self.pedido_atual.id,
+                )
+            )
+            self.pedido_atual = None
+            self.estado_chef = "OCIOSO"
+        elif self.escalonador.deve_preemptar(self.quantum_usado, self.fila_prontos):
+            self.pedido_atual.status = "NA_FILA"
+            self.fila_prontos.append(self.pedido_atual)
+            self.eventos.append(
+                EventoTurno(
+                    tempo=self.tempo,
+                    tipo="PREEMPCAO",
+                    mensagem=(
+                        f"Quantum ({self.escalonador.quantum}u) esgotado: "
+                        f"{self.pedido_atual.id} voltou para o fim da bancada."
+                    ),
+                    pedido_id=self.pedido_atual.id,
+                )
+            )
+            self.pedido_atual = None
+            self.estado_chef = "OCIOSO"
+
+    def _registrar_dica_abandono(self, pedido: Pedido) -> None:
+        """Adiciona explicação pedagógica sobre o motivo do abandono."""
+        if self.escalonador.nome == "FCFS":
+            self._dicas.append(
+                f"{pedido.id} ({pedido.nome}) desistiu da fila! No FCFS, pedidos longos "
+                f"chegando primeiro bloqueiam pedidos curtos (Efeito Comboio), "
+                f"estourando a paciência ({pedido.limite_paciencia}u)."
+            )
+        else:
+            self._dicas.append(
+                f"{pedido.id} ({pedido.nome}) desistiu da fila! Com quantum = "
+                f"{self.escalonador.quantum}u, o tempo gasto em trocas de panela ou "
+                f"a espera entre rodadas excedeu a paciência ({pedido.limite_paciencia}u)."
+            )
+
+    def _avaliar_dicas_gerais(self) -> None:
+        """Gera dicas sobre sobrecarga de troca de contexto ao fim do turno."""
+        if (
+            self.escalonador.nome == "Round Robin"
+            and self.trocas_panela >= len(self.pedidos)
+            and self.escalonador.quantum == 1
+        ):
+            self._dicas.append(
+                f"Quantum muito pequeno (1u) gerou {self.trocas_panela}u paradas em "
+                f"troca de panela. Aumentar o quantum reduz o desperdício de troca de contexto."
+            )
+=== src/cpu_kitchen/domain/scoring.py ===
+"""Cálculo de eficiência, estrelas e selos de recompensa por turno."""
+
+from cpu_kitchen.domain.models import AvaliacaoTurno, ResultadoTurno
+
+
+def avaliar_turno(
+    resultado: ResultadoTurno,
+    melhor_espera_media: float,
+    selo_turno: str,
+) -> AvaliacaoTurno:
+    """Calcula estrelas (1 a 3) e selo com base na eficiência da espera média.
+
+    Args:
+        resultado: Dados consolidados da execução do turno.
+        melhor_espera_media: Tempo médio de espera ótimo definido no cenário.
+        selo_turno: Título do selo concedido ao atingir 3 estrelas.
+
+    Returns:
+        Objeto AvaliacaoTurno com estrelas, eficiência percentual e selo.
+    """
+    total_pedidos = len(resultado.pedidos)
+    if total_pedidos == 0:
+        espera_media = 0.0
+    else:
+        espera_media = sum(p.espera for p in resultado.pedidos) / total_pedidos
+
+    if espera_media <= 0.0:
+        eficiencia = 1.0
+    elif melhor_espera_media <= 0.0:
+        eficiencia = 1.0 / (1.0 + espera_media)
+    else:
+        eficiencia = min(1.0, melhor_espera_media / espera_media)
+
+    if eficiencia >= 0.90:
+        estrelas_base = 3
+    elif eficiencia >= 0.70:
+        estrelas_base = 2
+    elif eficiencia >= 0.50:
+        estrelas_base = 1
+    else:
+        estrelas_base = 0
+
+    estrelas_finais = max(0, estrelas_base - resultado.abandonos)
+    selo_conquistado = selo_turno if estrelas_finais == 3 else None
+
+    return AvaliacaoTurno(
+        estrelas=estrelas_finais,
+        eficiencia_percentual=round(eficiencia * 100, 1),
+        espera_media=round(espera_media, 2),
+        melhor_espera_media=round(melhor_espera_media, 2),
+        selo_conquistado=selo_conquistado,
+    )
+=== src/cpu_kitchen/application/__init__.py ===
+"""Exportações públicas da camada de aplicação do CPU Kitchen."""
+
+from cpu_kitchen.application.loader import (
+    CAMINHO_PADRAO_CENARIOS,
+    CenarioLoadError,
+    carregar_cenarios,
+)
+
+__all__ = [
+    "CAMINHO_PADRAO_CENARIOS",
+    "CenarioLoadError",
+    "carregar_cenarios",
+]
+=== src/cpu_kitchen/application/loader.py ===
+"""Carregador e validador declarativo de cenários da cozinha."""
+
+import json
+from pathlib import Path
+from typing import Any
+
+from cpu_kitchen.domain.models import CenarioTurno, Pedido
+
+CAMINHO_PADRAO_CENARIOS = Path(__file__).resolve().parents[3] / "data" / "cenarios.json"
+
+
+class CenarioLoadError(Exception):
+    """Exceção lançada quando o arquivo de cenários está ausente ou inválido."""
+
+
+def carregar_cenarios(caminho: Path | str = CAMINHO_PADRAO_CENARIOS) -> list[CenarioTurno]:
+    """Lê e valida a lista de cenários a partir de um arquivo JSON.
+
+    Args:
+        caminho: Caminho para o arquivo JSON de cenários.
+
+    Returns:
+        Lista ordenada de objetos CenarioTurno prontos para o motor.
+
+    Raises:
+        CenarioLoadError: Se o arquivo não existir, estiver corrompido ou violar regras.
+    """
+    arquivo = Path(caminho)
+    if not arquivo.exists():
+        raise CenarioLoadError(f"Arquivo de cenários não encontrado: {arquivo}")
+
+    try:
+        conteudo = json.loads(arquivo.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise CenarioLoadError(f"JSON inválido em '{arquivo}': {exc}") from exc
+
+    cenarios_brutos = conteudo.get("cenarios")
+    if not isinstance(cenarios_brutos, list) or not cenarios_brutos:
+        raise CenarioLoadError("O arquivo JSON deve conter uma lista não vazia em 'cenarios'.")
+
+    ids_vistos: set[str] = set()
+    cenarios_validados: list[CenarioTurno] = []
+
+    for item in cenarios_brutos:
+        cenario = _parse_cenario(item)
+        if cenario.id in ids_vistos:
+            raise CenarioLoadError(f"ID de cenário duplicado encontrado: '{cenario.id}'.")
+        ids_vistos.add(cenario.id)
+        cenarios_validados.append(cenario)
+
+    return cenarios_validados
+
+
+def _parse_cenario(dados: dict[str, Any]) -> CenarioTurno:
+    """Converte e valida um dicionário bruto em uma instância de CenarioTurno.
+
+    Args:
+        dados: Dicionário extraído do array 'cenarios' no JSON.
+
+    Returns:
+        Instância validada de CenarioTurno.
+
+    Raises:
+        CenarioLoadError: Se campos obrigatórios estiverem ausentes ou incoerentes.
+    """
+    campos_obrigatorios = (
+        "id",
+        "titulo",
+        "descricao",
+        "quantum_padrao",
+        "melhor_espera_media",
+        "selo",
+        "pedidos",
+    )
+    for campo in campos_obrigatorios:
+        if campo not in dados:
+            raise CenarioLoadError(f"Campo obrigatório '{campo}' ausente no cenário.")
+
+    algoritmo_fixo = dados.get("algoritmo_fixo")
+    if algoritmo_fixo is not None and algoritmo_fixo not in ("FCFS", "Round Robin"):
+        raise CenarioLoadError(
+            f"Algoritmo inválido '{algoritmo_fixo}' no cenário '{dados['id']}'."
+        )
+
+    quantum_padrao = int(dados["quantum_padrao"])
+    if quantum_padrao < 1:
+        raise CenarioLoadError(
+            f"O 'quantum_padrao' deve ser >= 1 no cenário '{dados['id']}'."
+        )
+
+    melhor_espera = float(dados["melhor_espera_media"])
+    if melhor_espera < 0:
+        raise CenarioLoadError(
+            f"A 'melhor_espera_media' não pode ser negativa no cenário '{dados['id']}'."
+        )
+
+    pedidos_brutos = dados["pedidos"]
+    if not isinstance(pedidos_brutos, list) or not pedidos_brutos:
+        raise CenarioLoadError(
+            f"O cenário '{dados['id']}' deve possuir ao menos um pedido."
+        )
+
+    pedidos = [_parse_pedido(p, dados["id"]) for p in pedidos_brutos]
+
+    return CenarioTurno(
+        id=str(dados["id"]),
+        titulo=str(dados["titulo"]),
+        descricao=str(dados["descricao"]),
+        algoritmo_fixo=algoritmo_fixo,
+        quantum_padrao=quantum_padrao,
+        melhor_espera_media=melhor_espera,
+        selo=str(dados["selo"]),
+        pedidos=pedidos,
+    )
+
+
+def _parse_pedido(dados: dict[str, Any], cenario_id: str) -> Pedido:
+    """Converte e valida um item de pedido em um objeto Pedido do domínio.
+
+    Args:
+        dados: Dicionário com os atributos do pedido no JSON.
+        cenario_id: Identificador do cenário pai para mensagens de erro claras.
+
+    Returns:
+        Instância de Pedido com tempo restante inicializado.
+
+    Raises:
+        CenarioLoadError: Se chegada < 0 ou burst <= 0.
+    """
+    for campo in ("id", "nome", "chegada", "burst", "cor"):
+        if campo not in dados:
+            raise CenarioLoadError(
+                f"Campo '{campo}' ausente em pedido do cenário '{cenario_id}'."
+            )
+
+    chegada = int(dados["chegada"])
+    burst = int(dados["burst"])
+
+    if chegada < 0:
+        raise CenarioLoadError(
+            f"Pedido '{dados['id']}' no cenário '{cenario_id}' tem chegada negativa."
+        )
+    if burst < 1:
+        raise CenarioLoadError(
+            f"Pedido '{dados['id']}' no cenário '{cenario_id}' deve ter burst >= 1."
+        )
+
+    return Pedido(
+        id=str(dados["id"]),
+        nome=str(dados["nome"]),
+        chegada=chegada,
+        burst=burst,
+        cor=str(dados["cor"]),
+    )

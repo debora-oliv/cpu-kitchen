@@ -160,3 +160,34 @@ class AvaliacaoTurno:
     espera_media: float
     melhor_espera_media: float
     selo_conquistado: str | None
+
+# Adicionar ao final de src/cpu_kitchen/domain/models.py
+
+def montar_pedidos_por_ordem(
+    pedidos_padrao: list[Pedido],
+    indices_escolhidos: list[int],
+) -> list[Pedido]:
+    """Cria a lista de pedidos na ordem escolhida mantendo os tempos de chegada do cenário.
+
+    Se nenhum prato for escolhido, retorna a ordem padrão do cenário.
+    O 1º escolhido vira P1 com a chegada do 1º slot, o 2º vira P2, e assim por diante.
+    """
+    if not indices_escolhidos:
+        return list(pedidos_padrao)
+
+    tempos_chegada = [p.chegada for p in pedidos_padrao]
+    pedidos_ordenados: list[Pedido] = []
+
+    for pos, idx_original in enumerate(indices_escolhidos):
+        prato_base = pedidos_padrao[idx_original]
+        pedidos_ordenados.append(
+            Pedido(
+                id=f"P{pos + 1}",
+                nome=prato_base.nome,
+                chegada=tempos_chegada[pos],
+                burst=prato_base.burst,
+                cor=prato_base.cor,
+            )
+        )
+
+    return pedidos_ordenados
